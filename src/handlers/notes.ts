@@ -266,7 +266,6 @@ composer.callbackQuery(/^note:delete:confirm:(.+)$/, async (ctx) => {
     return;
   }
   const allMembers = await store.getNoteMembers(noteId);
-  await store.deleteEdits(noteId);
   await store.deleteNote(noteId);
   for (const member of allMembers) {
     if (member.user_id !== userId) {
@@ -351,47 +350,6 @@ composer.callbackQuery(/^note:history:(.+)$/, async (ctx) => {
   });
 });
 
-composer.callbackQuery(/^note:revert:([^:]+):(.+)$/, async (ctx) => {
-  await ctx.answerCallbackQuery();
-  const noteId = ctx.match[1]!;
-  const editId = ctx.match[2]!;
-  const store = getStore();
-  const note = await store.getNote(noteId);
-  if (!note) {
-    await ctx.editMessageText("Note not found.", {
-      reply_markup: backToNotesButton(),
-    });
-    return;
-  }
-  const userId = await getUserId(ctx);
-  const membership = await store.getMembership(userId, noteId);
-  if (!membership) {
-    await ctx.editMessageText("You don't have access to this note.", {
-      reply_markup: backToNotesButton(),
-    });
-    return;
-  }
-  const edits = await store.getEdits(noteId);
-  const targetEdit = edits.find((e) => e.id === editId);
-  if (!targetEdit) {
-    await ctx.editMessageText("Edit revision not found.", {
-      reply_markup: backToNoteButton(noteId),
-    });
-    return;
-  }
-  await ctx.editMessageText(
-    `Revert "${note.title}" to version from ${new Date(targetEdit.timestamp).toLocaleString()}?`,
-    {
-      reply_markup: inlineKeyboard([
-        [
-          inlineButton("✅ Yes, revert", `note:revert:confirm:${noteId}:${editId}`),
-          inlineButton("❌ Cancel", `note:history:${noteId}`),
-        ],
-      ]),
-    },
-  );
-});
-
 composer.callbackQuery(/^note:revert:confirm:([^:]+):(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   const noteId = ctx.match[1]!;
@@ -442,6 +400,47 @@ composer.callbackQuery(/^note:revert:confirm:([^:]+):(.+)$/, async (ctx) => {
     `Reverted "${reverted.title}" to an earlier version.`,
     {
       reply_markup: noteViewKeyboard(noteId, note.owner_id === userId),
+    },
+  );
+});
+
+composer.callbackQuery(/^note:revert:(\d+):(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const editId = ctx.match[2]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const userId = await getUserId(ctx);
+  const membership = await store.getMembership(userId, noteId);
+  if (!membership) {
+    await ctx.editMessageText("You don't have access to this note.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const edits = await store.getEdits(noteId);
+  const targetEdit = edits.find((e) => e.id === editId);
+  if (!targetEdit) {
+    await ctx.editMessageText("Edit revision not found.", {
+      reply_markup: backToNoteButton(noteId),
+    });
+    return;
+  }
+  await ctx.editMessageText(
+    `Revert "${note.title}" to version from ${new Date(targetEdit.timestamp).toLocaleString()}?`,
+    {
+      reply_markup: inlineKeyboard([
+        [
+          inlineButton("✅ Yes, revert", `note:revert:confirm:${noteId}:${editId}`),
+          inlineButton("❌ Cancel", `note:history:${noteId}`),
+        ],
+      ]),
     },
   );
 });

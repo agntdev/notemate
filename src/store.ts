@@ -253,6 +253,7 @@ export class PersistentStore {
       await this.deleteInvitation(inviteId);
     }
     await this.backend.del(this.inviteByNoteKey(id));
+    await this.backend.del(this.editsKey(id));
     await this.backend.del(this.noteKey(id));
     await this.backend.del(this.noteMembersKey(id));
   }
