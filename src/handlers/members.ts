@@ -60,9 +60,10 @@ composer.callbackQuery(/^note:members:(.+)$/, async (ctx) => {
   const rows: InlineButton[][] = [];
 
   for (const m of members) {
+    const name = (await store.getUsernameForUser(m.user_id)) ?? `User ${m.user_id}`;
     const label = m.user_id === note.owner_id
-      ? `👑 User ${m.user_id} (owner)`
-      : `👤 User ${m.user_id}`;
+      ? `👑 @${name} (owner)`
+      : `👤 @${name}`;
     const row: InlineButton[] = [inlineButton(label, "noop")];
     if (isOwner && m.user_id !== note.owner_id) {
       row.push(
@@ -101,8 +102,9 @@ composer.callbackQuery(/^note:revoke:([^:]+):(\d+)$/, async (ctx) => {
     return;
   }
 
+  const userName = (await store.getUsernameForUser(targetUserId)) ?? `User ${targetUserId}`;
   await ctx.editMessageText(
-    `Remove user ${targetUserId} from "${note.title}"?`,
+    `Remove @${userName} from "${note.title}"?`,
     {
       reply_markup: inlineKeyboard([
         [
@@ -136,7 +138,8 @@ composer.callbackQuery(/^note:revoke:confirm:([^:]+):(\d+)$/, async (ctx) => {
   }
 
   await store.removeMembership(targetUserId, noteId);
-  await ctx.editMessageText(`User ${targetUserId} removed from "${note.title}".`, {
+  const revokeUserName = (await store.getUsernameForUser(targetUserId)) ?? `User ${targetUserId}`;
+  await ctx.editMessageText(`@${revokeUserName} removed from "${note.title}".`, {
     reply_markup: inlineKeyboard([
       [inlineButton("👥 Back to members", `note:members:${noteId}`)],
       [inlineButton("⬅️ Back to note", `note:view:${noteId}`)],

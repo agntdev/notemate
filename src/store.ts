@@ -145,6 +145,10 @@ export class PersistentStore {
     return `user:by:username:${username.toLowerCase()}`;
   }
 
+  private usernameByUserKey(userId: number): string {
+    return `user:name:${userId}`;
+  }
+
   private async getJsonArray(key: string): Promise<string[]> {
     const raw = await this.backend.get(key);
     if (!raw) return [];
@@ -175,12 +179,18 @@ export class PersistentStore {
 
   async setUserByUsername(username: string, userId: number): Promise<void> {
     await this.backend.set(this.userByUsernameKey(username), String(userId));
+    await this.backend.set(this.usernameByUserKey(userId), username.toLowerCase());
   }
 
   async getUserByUsername(username: string): Promise<number | null> {
     const raw = await this.backend.get(this.userByUsernameKey(username));
     if (!raw) return null;
     return parseInt(raw, 10);
+  }
+
+  async getUsernameForUser(userId: number): Promise<string | null> {
+    const raw = await this.backend.get(this.usernameByUserKey(userId));
+    return raw ?? null;
   }
 
   async createNote(
@@ -220,11 +230,11 @@ export class PersistentStore {
     const now = Date.now();
     const titleChanged = note.title !== title;
     const bodyChanged = note.body !== body;
+    if (!titleChanged && !bodyChanged) return note;
     let diff = "";
     if (titleChanged && bodyChanged) diff = "Title and body changed";
     else if (titleChanged) diff = "Title changed";
-    else if (bodyChanged) diff = "Body changed";
-    else diff = "No changes";
+    else diff = "Body changed";
     note.title = title;
     note.body = body;
     note.updated_at = now;
