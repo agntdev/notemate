@@ -95,7 +95,18 @@
           {
             "method": "editMessageText",
             "payload": {
-              "text": "Editing \"Edit Test\"\n\nCurrent body:\nOriginal body\n\nSend the new body:"
+              "text": "Editing \"Edit Test\"\n\nCurrent title: Edit Test\n\nSend new title (or send \".\" to keep):"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "." },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Current body:\nOriginal body\n\nSend the new body:"
             }
           }
         ]
@@ -133,6 +144,10 @@
       {
         "send": { "callback": "note:edit:3" },
         "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "." },
+        "expect": [{ "method": "sendMessage" }]
       },
       {
         "send": { "text": "Second version" },
@@ -284,12 +299,20 @@
         "expect": [{ "method": "editMessageText" }]
       },
       {
+        "send": { "text": "." },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
         "send": { "text": "Version B" },
         "expect": [{ "method": "sendMessage" }]
       },
       {
         "send": { "callback": "note:edit:7" },
         "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "." },
+        "expect": [{ "method": "sendMessage" }]
       },
       {
         "send": { "text": "Version C" },
