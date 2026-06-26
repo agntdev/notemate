@@ -1,0 +1,267 @@
+[
+  {
+    "name": "empty note list shows placeholder",
+    "steps": [
+      {
+        "send": { "callback": "note:list" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "No notes yet — tap 📝 Create note to add one."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "create note flow",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "Send the title for your new note:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "My First Note" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Now send the body of the note:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "Hello world!" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "📄 My First Note\n\nHello world!"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "edit note flow",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "Send the title for your new note:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "Edit Test" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Now send the body of the note:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "Original body" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "📄 Edit Test\n\nOriginal body"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "callback": "note:edit:2" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "Editing \"Edit Test\"\n\nCurrent body:\nOriginal body\n\nSend the new body:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "Updated body" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "📄 Edit Test\n\nUpdated body"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "view edit history after edit",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }
+        ]
+      },
+      {
+        "send": { "text": "History Note" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "First version" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:edit:3" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "Second version" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:history:3" },
+        "expect": [
+          {
+            "method": "editMessageText"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "delete note flow",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }
+        ]
+      },
+      {
+        "send": { "text": "Delete Me" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "Some content" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:delete:4" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "Delete \"Delete Me\"? This cannot be undone."
+            }
+          }
+        ]
+      },
+      {
+        "send": { "callback": "note:delete:confirm:4" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "\"Delete Me\" deleted."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "list notes with entries shows titles",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+      },
+      {
+        "send": { "text": "Listable Note" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "Body here" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:list" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "Your notes:"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "/list command shows notes",
+    "steps": [
+      {
+        "send": { "text": "/list" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Your notes:"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "/new command starts note creation",
+    "steps": [
+      {
+        "send": { "text": "/new" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Send the title for your new note:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "Quick Note" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Now send the body of the note:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "Fast creation" },
+        "expect": [{ "method": "sendMessage" }]
+      }
+    ]
+  }
+]

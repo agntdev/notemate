@@ -1,0 +1,282 @@
+import { Composer } from "grammy";
+import type { Ctx } from "../bot.js";
+import {
+  registerMainMenuItem,
+  inlineButton,
+  inlineKeyboard,
+  type InlineKeyboardMarkup,
+} from "../toolkit/index.js";
+import { getStore } from "../store.js";
+
+registerMainMenuItem({ label: "📝 Create note", data: "note:create:start", order: 10 });
+registerMainMenuItem({ label: "📋 My notes", data: "note:list", order: 20 });
+
+function noteViewKeyboard(noteId: string): InlineKeyboardMarkup {
+  return inlineKeyboard([
+    [
+      inlineButton("✏️ Edit", `note:edit:${noteId}`),
+      inlineButton("👥 Members", `note:members:${noteId}`),
+    ],
+    [
+      inlineButton("📜 History", `note:history:${noteId}`),
+      inlineButton("➕ Invite", `note:invite:${noteId}`),
+    ],
+    [
+      inlineButton("🗑️ Delete", `note:delete:${noteId}`),
+      inlineButton("⬅️ Menu", "menu:main"),
+    ],
+  ]);
+}
+
+function backToNoteButton(noteId: string) {
+  return inlineKeyboard([[inlineButton("⬅️ Back to note", `note:view:${noteId}`)]]);
+}
+
+function backToNotesButton() {
+  return inlineKeyboard([[inlineButton("⬅️ Back to notes", "note:list")]]);
+}
+
+async function getUserId(ctx: Ctx): Promise<number> {
+  return ctx.from?.id ?? ctx.callbackQuery?.from.id ?? 0;
+}
+
+const composer = new Composer<Ctx>();
+
+composer.command("new", async (ctx) => {
+  ctx.session.creatingNote = { step: "awaiting_title" };
+  await ctx.reply("Send the title for your new note:");
+});
+
+composer.command("list", async (ctx) => {
+  const store = getStore();
+  const userId = await getUserId(ctx);
+  const notes = await store.listNotesByUser(userId);
+  if (notes.length === 0) {
+    await ctx.reply("No notes yet — tap 📝 Create note to add one.", {
+      reply_markup: inlineKeyboard([[inlineButton("⬅️ Menu", "menu:main")]]),
+    });
+    return;
+  }
+  const rows = notes.map((n) => [
+    inlineButton(`📄 ${n.title}`, `note:view:${n.id}`),
+  ]);
+  await ctx.reply("Your notes:", {
+    reply_markup: inlineKeyboard([...rows, [inlineButton("⬅️ Menu", "menu:main")]]),
+  });
+});
+
+composer.callbackQuery("note:list", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const store = getStore();
+  const userId = await getUserId(ctx);
+  const notes = await store.listNotesByUser(userId);
+  if (notes.length === 0) {
+    await ctx.editMessageText(
+      "No notes yet — tap 📝 Create note to add one.",
+      { reply_markup: inlineKeyboard([[inlineButton("⬅️ Menu", "menu:main")]]) },
+    );
+    return;
+  }
+  const rows = notes.map((n) => [
+    inlineButton(`📄 ${n.title}`, `note:view:${n.id}`),
+  ]);
+  await ctx.editMessageText("Your notes:", {
+    reply_markup: inlineKeyboard([...rows, [inlineButton("⬅️ Menu", "menu:main")]]),
+  });
+});
+
+composer.callbackQuery("note:create:start", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  ctx.session.creatingNote = { step: "awaiting_title" };
+  await ctx.editMessageText("Send the title for your new note:");
+});
+
+composer.on("message:text", async (ctx, next) => {
+  const session = ctx.session;
+
+  if (session.creatingNote?.step === "awaiting_title") {
+    const title = ctx.message.text.trim();
+    if (!title) {
+      await ctx.reply("Title cannot be empty. Please send a title:");
+      return;
+    }
+    session.creatingNote = { step: "awaiting_body", title };
+    await ctx.reply("Now send the body of the note:");
+    return;
+  }
+
+  if (session.creatingNote?.step === "awaiting_body") {
+    const body = ctx.message.text.trim();
+    const title = session.creatingNote.title ?? "Untitled";
+    session.creatingNote = undefined;
+    const store = getStore();
+    const userId = await getUserId(ctx);
+    const note = await store.createNote(userId, title, body);
+    await ctx.reply(`📄 ${note.title}\n\n${note.body}`, {
+      reply_markup: noteViewKeyboard(note.id),
+    });
+    return;
+  }
+
+  if (session.editingNote) {
+    const body = ctx.message.text.trim();
+    const noteId = session.editingNote.noteId;
+    session.editingNote = undefined;
+    const store = getStore();
+    const userId = await getUserId(ctx);
+    const note = await store.getNote(noteId);
+    if (!note) {
+      await ctx.reply("Note no longer exists.");
+      return;
+    }
+    const updated = await store.updateNote(noteId, note.title, body, userId);
+    if (!updated) {
+      await ctx.reply("Note no longer exists.");
+      return;
+    }
+    const allMembers = await store.getNoteMembers(noteId);
+    for (const member of allMembers) {
+      if (member.user_id !== userId) {
+        try {
+          await ctx.api.sendMessage(
+            member.user_id,
+            `Note "${updated.title}" was edited.`,
+          );
+        } catch {
+          // Non-fatal
+        }
+      }
+    }
+    const memberships = await store.getMembershipsByUser(userId);
+    if (memberships.some((m) => m.note_id === noteId)) {
+      await ctx.reply(`📄 ${updated.title}\n\n${updated.body}`, {
+        reply_markup: noteViewKeyboard(noteId),
+      });
+    }
+    return;
+  }
+
+  return next();
+});
+
+composer.callbackQuery(/^note:view:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  await ctx.editMessageText(`📄 ${note.title}\n\n${note.body}`, {
+    reply_markup: noteViewKeyboard(note.id),
+  });
+});
+
+composer.callbackQuery(/^note:edit:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const userId = await getUserId(ctx);
+  const membership = await store.getMembership(userId, noteId);
+  if (!membership) {
+    await ctx.answerCallbackQuery({ text: "You don't have access to this note.", show_alert: true });
+    return;
+  }
+  ctx.session.editingNote = { noteId };
+  await ctx.editMessageText(
+    `Editing "${note.title}"\n\nCurrent body:\n${note.body}\n\nSend the new body:`,
+  );
+});
+
+composer.callbackQuery(/^note:delete:confirm:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const userId = await getUserId(ctx);
+  if (note.owner_id !== userId) {
+    await ctx.editMessageText("Only the owner can delete this note.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  await store.deleteEdits(noteId);
+  await store.deleteNote(noteId);
+  await ctx.editMessageText(`"${note.title}" deleted.`, {
+    reply_markup: backToNotesButton(),
+  });
+});
+
+composer.callbackQuery(/^note:delete:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const userId = await getUserId(ctx);
+  if (note.owner_id !== userId) {
+    await ctx.answerCallbackQuery({
+      text: "Only the owner can delete this note.",
+      show_alert: true,
+    });
+    return;
+  }
+  await ctx.editMessageText(`Delete "${note.title}"? This cannot be undone.`, {
+    reply_markup: inlineKeyboard([
+      [
+        inlineButton("✅ Yes, delete", `note:delete:confirm:${noteId}`),
+        inlineButton("❌ Cancel", `note:view:${noteId}`),
+      ],
+    ]),
+  });
+});
+
+composer.callbackQuery(/^note:history:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const edits = await store.getEdits(noteId);
+  if (edits.length === 0) {
+    await ctx.editMessageText("No edit history for this note.", {
+      reply_markup: backToNoteButton(noteId),
+    });
+    return;
+  }
+  const lines = edits.map(
+    (e, i) => `${i + 1}. ${new Date(e.timestamp).toLocaleString()} — "${e.title}"`,
+  );
+  const text = `Edit history for "${note.title}":\n\n${lines.join("\n")}`;
+  await ctx.editMessageText(text, {
+    reply_markup: backToNoteButton(noteId),
+  });
+});
+
+export default composer;
