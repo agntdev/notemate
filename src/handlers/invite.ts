@@ -8,18 +8,54 @@ import {
 import { getStore } from "../store.js";
 
 function backToNoteButton(noteId: string): InlineKeyboardMarkup {
-  return inlineKeyboard([[inlineButton("⬅️ Back to note", `note:view:${noteId}`)]]);
+  return inlineKeyboard([[inlineButton("⬅️ Back to note", `note:view:${noteId}`)]]) ;
 }
 
 async function getUserId(ctx: Ctx): Promise<number> {
   return ctx.from?.id ?? ctx.callbackQuery?.from.id ?? 0;
 }
 
-async function notifyOwner(ctx: Ctx, ownerId: number, text: string): Promise<void> {
+async function notifyOwner(ctx: Ctx, ownerId: number, text: string, noteId?: string): Promise<void> {
   try {
-    await ctx.api.sendMessage(ownerId, text);
+    const markup = noteId
+      ? inlineKeyboard([[inlineButton("📄 Open note", `note:view:${noteId}`)]])
+      : undefined;
+    await ctx.api.sendMessage(ownerId, text, { reply_markup: markup });
   } catch {
     // Non-fatal: user may not have started the bot
+  }
+}
+
+async function tryDeliverInvitation(
+  ctx: Ctx,
+  inviteeUserId: number,
+  invitationId: string,
+  noteTitle: string,
+  inviteOwnerId: number,
+): Promise<boolean> {
+  if (!inviteeUserId || inviteeUserId === 0) return false;
+  try {
+    await ctx.api.sendMessage(
+      inviteeUserId,
+      `You've been invited to collaborate on "${noteTitle}".`,
+      {
+        reply_markup: inlineKeyboard([
+          [
+            inlineButton("✅ Accept", `invite:accept:${invitationId}`),
+            inlineButton("❌ Decline", `invite:decline:${invitationId}`),
+          ],
+        ]),
+      },
+    );
+    return true;
+  } catch (err: unknown) {
+    // If the user hasn't started the bot, Telegram returns 403.
+    // The invitee will see the pending invitation when they /start.
+    const code = (err as { error_code?: number }).error_code;
+    if (code === 403) {
+      return false;
+    }
+    return false;
   }
 }
 
@@ -71,7 +107,7 @@ composer.on("message:text", async (ctx, next) => {
   const invitation = await store.createInvitation({
     note_id: noteId,
     owner_id: userId,
-    invited_user_id: 0,
+    telegram_user_id: 0,
     invited_username: username,
     note_title: note.title,
   });
@@ -133,6 +169,7 @@ composer.callbackQuery(/^invite:accept:(.+)$/, async (ctx) => {
     ctx,
     invite.owner_id,
     `@${invite.invited_username} accepted your invitation to "${note.title}".`,
+    invite.note_id,
   );
 });
 

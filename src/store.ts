@@ -20,6 +20,7 @@ export interface Edit {
   note_id: string;
   author_id: number;
   timestamp: number;
+  diff_summary: string;
   title: string;
   body: string;
 }
@@ -28,7 +29,7 @@ export interface Invitation {
   id: string;
   note_id: string;
   owner_id: number;
-  invited_user_id: number;
+  telegram_user_id: number;
   invited_username: string;
   note_title: string;
 }
@@ -189,11 +190,18 @@ export class PersistentStore {
     const note = await this.getNote(id);
     if (!note) return null;
     const now = Date.now();
+    const titleChanged = note.title !== title;
+    const bodyChanged = note.body !== body;
+    let diff = "";
+    if (titleChanged && bodyChanged) diff = "Title and body changed";
+    else if (titleChanged) diff = "Title changed";
+    else if (bodyChanged) diff = "Body changed";
+    else diff = "No changes";
     note.title = title;
     note.body = body;
     note.updated_at = now;
     await this.backend.set(this.noteKey(id), JSON.stringify(note));
-    await this.addEdit(id, editorId, title, body);
+    await this.addEdit(id, editorId, diff, title, body);
     return note;
   }
 
@@ -274,6 +282,7 @@ export class PersistentStore {
   async addEdit(
     noteId: string,
     authorId: number,
+    diffSummary: string,
     title: string,
     body: string,
   ): Promise<Edit> {
@@ -283,6 +292,7 @@ export class PersistentStore {
       note_id: noteId,
       author_id: authorId,
       timestamp: Date.now(),
+      diff_summary: diffSummary,
       title,
       body,
     };
@@ -306,10 +316,42 @@ export class PersistentStore {
     await this.backend.del(this.editsKey(noteId));
   }
 
+  async revertToEdit(
+    noteId: string,
+    editId: string,
+  ): Promise<Note | null> {
+    const edits = await this.getEdits(noteId);
+    const target = edits.find((e) => e.id === editId);
+    if (!target) return null;
+    const note = await this.getNote(noteId);
+    if (!note) return null;
+    const now = Date.now();
+    note.title = target.title;
+    note.body = target.body;
+    note.updated_at = now;
+    await this.backend.set(this.noteKey(noteId), JSON.stringify(note));
+    return note;
+  }
+
+  async findInvitationsByInvitedUsername(username: string): Promise<Invitation[]> {
+    const idsKey = "invite:by:username:" + username.toLowerCase();
+    const ids = await this.getJsonArray(idsKey);
+    const out: Invitation[] = [];
+    for (const id of ids) {
+      const inv = await this.getInvitation(id);
+      if (inv) out.push(inv);
+    }
+    return out;
+  }
+
   async createInvitation(inv: Omit<Invitation, "id">): Promise<Invitation> {
     const id = String(await this.backend.incr("invite:id"));
     const invitation: Invitation = { ...inv, id };
     await this.backend.set(this.inviteKey(id), JSON.stringify(invitation));
+    if (inv.invited_username) {
+      const idsKey = "invite:by:username:" + inv.invited_username.toLowerCase();
+      await this.addToJsonSet(idsKey, id);
+    }
     return invitation;
   }
 
@@ -320,6 +362,11 @@ export class PersistentStore {
   }
 
   async deleteInvitation(id: string): Promise<void> {
+    const inv = await this.getInvitation(id);
+    if (inv && inv.invited_username) {
+      const idsKey = "invite:by:username:" + inv.invited_username.toLowerCase();
+      await this.removeFromJsonSet(idsKey, id);
+    }
     await this.backend.del(this.inviteKey(id));
   }
 }
