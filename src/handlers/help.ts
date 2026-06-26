@@ -15,7 +15,7 @@ const HELP =
 const backToMenu = inlineKeyboard([[inlineButton("⬅️ Back to menu", "menu:main")]]);
 
 composer.command("help", async (ctx) => {
-  await ctx.reply(HELP);
+  await ctx.reply(HELP, { reply_markup: backToMenu });
 });
 
 composer.callbackQuery("menu:help", async (ctx) => {

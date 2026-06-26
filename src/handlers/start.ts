@@ -36,6 +36,11 @@ async function showPendingInvitations(ctx: Ctx): Promise<boolean> {
 const composer = new Composer<Ctx>();
 
 composer.command("start", async (ctx) => {
+  const uid = ctx.from?.id;
+  const username = ctx.from?.username;
+  if (uid && username) {
+    await getStore().setUserByUsername(username, uid);
+  }
   await showPendingInvitations(ctx);
   await ctx.reply(WELCOME, { reply_markup: mainMenuKeyboard() });
 });

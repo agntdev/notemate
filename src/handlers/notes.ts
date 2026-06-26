@@ -5,22 +5,26 @@ import {
   inlineButton,
   inlineKeyboard,
   type InlineKeyboardMarkup,
+  type InlineButton,
 } from "../toolkit/index.js";
 import { getStore } from "../store.js";
 
 registerMainMenuItem({ label: "📝 Create note", data: "note:create:start", order: 10 });
 registerMainMenuItem({ label: "📋 My notes", data: "note:list", order: 20 });
 
-function noteViewKeyboard(noteId: string): InlineKeyboardMarkup {
+function noteViewKeyboard(noteId: string, isOwner = false): InlineKeyboardMarkup {
+  const row2: InlineButton[] = [
+    inlineButton("📜 History", `note:history:${noteId}`),
+  ];
+  if (isOwner) {
+    row2.push(inlineButton("➕ Invite", `note:invite:${noteId}`));
+  }
   return inlineKeyboard([
     [
       inlineButton("✏️ Edit", `note:edit:${noteId}`),
       inlineButton("👥 Members", `note:members:${noteId}`),
     ],
-    [
-      inlineButton("📜 History", `note:history:${noteId}`),
-      inlineButton("➕ Invite", `note:invite:${noteId}`),
-    ],
+    row2,
     [
       inlineButton("🗑️ Delete", `note:delete:${noteId}`),
       inlineButton("⬅️ Menu", "menu:main"),
@@ -115,7 +119,7 @@ composer.on("message:text", async (ctx, next) => {
     const userId = await getUserId(ctx);
     const note = await store.createNote(userId, title, body);
     await ctx.reply(`📄 ${note.title}\n\n${note.body}`, {
-      reply_markup: noteViewKeyboard(note.id),
+      reply_markup: noteViewKeyboard(note.id, true),
     });
     return;
   }
@@ -185,7 +189,7 @@ composer.on("message:text", async (ctx, next) => {
     const memberships = await store.getMembershipsByUser(userId);
     if (memberships.some((m) => m.note_id === noteId)) {
       await ctx.reply(`📄 ${updated.title}\n\n${updated.body}`, {
-        reply_markup: noteViewKeyboard(noteId),
+        reply_markup: noteViewKeyboard(noteId, updated.owner_id === userId),
       });
     }
     return;
@@ -214,7 +218,7 @@ composer.callbackQuery(/^note:view:(.+)$/, async (ctx) => {
     return;
   }
   await ctx.editMessageText(`📄 ${note.title}\n\n${note.body}`, {
-    reply_markup: noteViewKeyboard(note.id),
+    reply_markup: noteViewKeyboard(note.id, note.owner_id === userId),
   });
 });
 
@@ -435,7 +439,7 @@ composer.callbackQuery(/^note:revert:confirm:([^:]+):(.+)$/, async (ctx) => {
   await ctx.editMessageText(
     `Reverted "${reverted.title}" to an earlier version.`,
     {
-      reply_markup: noteViewKeyboard(noteId),
+      reply_markup: noteViewKeyboard(noteId, note.owner_id === userId),
     },
   );
 });

@@ -74,16 +74,41 @@ composer.on("message:text", async (ctx, next) => {
 
   const userId = await getUserId(ctx);
 
+  const inviteeUserId = await store.getUserByUsername(username);
+
   const invitation = await store.createInvitation({
     note_id: noteId,
     owner_id: userId,
-    telegram_user_id: 0,
+    telegram_user_id: inviteeUserId ?? 0,
     invited_username: username,
     note_title: note.title,
   });
 
+  let delivered = false;
+  if (inviteeUserId) {
+    try {
+      await ctx.api.sendMessage(
+        inviteeUserId,
+        `📩 You've been invited to collaborate on "${note.title}".`,
+        {
+          reply_markup: inlineKeyboard([
+            [inlineButton("✅ Accept", `invite:accept:${invitation.id}`)],
+            [inlineButton("❌ Decline", `invite:decline:${invitation.id}`)],
+          ]),
+        },
+      );
+      delivered = true;
+    } catch {
+      // Non-fatal: invitee may not have started the bot yet
+    }
+  }
+
+  const deliveryNote = delivered
+    ? "They've been notified."
+    : "They'll see it when they /start the bot.";
+
   await ctx.reply(
-    `Invitation created for @${username} on note "${note.title}". They'll see it when they /start the bot.`,
+    `Invitation created for @${username} on note "${note.title}". ${deliveryNote}`,
     {
       reply_markup: backToNoteButton(noteId),
     },
