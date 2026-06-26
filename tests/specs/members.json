@@ -4,7 +4,7 @@
     "steps": [
       {
         "send": { "callback": "note:create:start" },
-        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Send the title for your new note:" } }]
       },
       {
         "send": { "text": "Team Note" },
@@ -30,7 +30,7 @@
     "steps": [
       {
         "send": { "callback": "note:create:start" },
-        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Send the title for your new note:" } }]
       },
       {
         "send": { "text": "Revoke Test" },
@@ -41,11 +41,17 @@
         "expect": [{ "method": "sendMessage" }]
       },
       {
-        "send": { "callback": "note:invite:2" },
-        "expect": [{ "method": "editMessageText" }]
+        "send": { "text": "/start", "userId": 2, "chatId": 2 },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "👋 Welcome! Tap a button below to get started." } }
+        ]
       },
       {
-        "send": { "text": "@toremove" },
+        "send": { "callback": "note:invite:2", "userId": 1, "chatId": 1 },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "text": "@testuser2", "userId": 1, "chatId": 1 },
         "expect": [{ "method": "sendMessage" }]
       },
       {
@@ -57,7 +63,7 @@
         "expect": [
           {
             "method": "editMessageText",
-            "payload": { "text": "Remove user 2 from \"Revoke Test\"?" }
+            "payload": { "text": "Remove @testuser2 from \"Revoke Test\"?" }
           }
         ]
       },
@@ -66,7 +72,7 @@
         "expect": [
           {
             "method": "editMessageText",
-            "payload": { "text": "User 2 removed from \"Revoke Test\"." }
+            "payload": { "text": "@testuser2 removed from \"Revoke Test\"." }
           }
         ]
       }

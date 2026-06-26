@@ -50,9 +50,9 @@ composer.callbackQuery(/^note:invite:(.+)$/, async (ctx) => {
     return;
   }
   ctx.session.invitingToNote = { noteId };
-  await ctx.editMessageText(
+  await ctx.reply(
     `Inviting to "${note.title}"\n\nSend the @username of the person you want to invite:`,
-    { reply_markup: { force_reply: true } as any },
+    { reply_markup: { force_reply: true } },
   );
 });
 
@@ -146,6 +146,25 @@ composer.callbackQuery(/^invite:accept:(.+)$/, async (ctx) => {
     });
     await store.deleteInvitation(inviteId);
     return;
+  }
+
+  const userUsername = ctx.from?.username ?? "";
+  const invitedUserId = invite.telegram_user_id;
+  const invitedUsername = invite.invited_username.toLowerCase();
+  const isAuthorized =
+    (invitedUserId !== 0 && userId === invitedUserId) ||
+    (invitedUserId === 0 && userUsername.toLowerCase() === invitedUsername);
+
+  if (!isAuthorized) {
+    await ctx.answerCallbackQuery({
+      text: "This invitation is not for your account.",
+      show_alert: true,
+    });
+    return;
+  }
+
+  if (ctx.from?.username) {
+    await store.setUserByUsername(ctx.from.username, userId);
   }
 
   await store.addMembership(userId, invite.note_id, "editor");

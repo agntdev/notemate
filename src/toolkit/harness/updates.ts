@@ -13,7 +13,7 @@ function privateChat(id: number): Chat.PrivateChat {
 }
 
 function humanUser(id: number): User {
-  return { id, is_bot: false, first_name: "Test" };
+  return { id, is_bot: false, first_name: "Test", username: `testuser${id}` };
 }
 
 /** bot_command entity for a leading "/cmd" so grammY's command router matches. */

@@ -19,16 +19,18 @@ function noteViewKeyboard(noteId: string, isOwner = false): InlineKeyboardMarkup
   if (isOwner) {
     row2.push(inlineButton("➕ Invite", `note:invite:${noteId}`));
   }
+  const row3: InlineButton[] = [];
+  if (isOwner) {
+    row3.push(inlineButton("🗑️ Delete", `note:delete:${noteId}`));
+  }
+  row3.push(inlineButton("⬅️ Menu", "menu:main"));
   return inlineKeyboard([
     [
       inlineButton("✏️ Edit", `note:edit:${noteId}`),
       inlineButton("👥 Members", `note:members:${noteId}`),
     ],
     row2,
-    [
-      inlineButton("🗑️ Delete", `note:delete:${noteId}`),
-      inlineButton("⬅️ Menu", "menu:main"),
-    ],
+    row3,
   ]);
 }
 
@@ -94,7 +96,7 @@ composer.callbackQuery("note:list", async (ctx) => {
 composer.callbackQuery("note:create:start", async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.creatingNote = { step: "awaiting_title" };
-  await ctx.editMessageText("Send the title for your new note:", { reply_markup: { force_reply: true } as any });
+  await ctx.reply("Send the title for your new note:", { reply_markup: { force_reply: true } });
 });
 
 composer.on("message:text", async (ctx, next) => {
