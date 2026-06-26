@@ -31,7 +31,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Invitation sent to @johndoe for note \"Invite Test\"."
+              "text": "Invitation created for @johndoe on note \"Invite Test\". They'll see it when they /start the bot."
             }
           }
         ]

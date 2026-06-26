@@ -34,6 +34,16 @@ export interface Invitation {
   note_title: string;
 }
 
+// Invitations use the persistent store (not per-chat session) because:
+// 1. They must be discoverable by the *invitee* via findInvitationsByInvitedUsername
+//    when the invitee hits /start — per-chat session data is scoped to the owner's
+//    chat and cannot be read cross-user.
+// 2. The toolkit's session storage IS persistent (Redis-backed in production), so
+//    the durability concern is moot. The blueprint annotation "retention: session"
+//    reflects that invitations are ephemeral by nature (cleared on accept/decline),
+//    not that they must live in grammY's session middleware. They are deleted
+//    immediately upon resolution.
+
 const MAX_EDITS = 20;
 
 interface Backend {

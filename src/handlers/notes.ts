@@ -37,7 +37,9 @@ function backToNotesButton() {
 }
 
 async function getUserId(ctx: Ctx): Promise<number> {
-  return ctx.from?.id ?? ctx.callbackQuery?.from.id ?? 0;
+  const id = ctx.from?.id ?? ctx.callbackQuery?.from.id;
+  if (!id) throw new Error("Cannot determine user ID");
+  return id;
 }
 
 const composer = new Composer<Ctx>();
@@ -118,9 +120,36 @@ composer.on("message:text", async (ctx, next) => {
     return;
   }
 
-  if (session.editingNote) {
+  if (session.editingNote?.step === "awaiting_title") {
+    const title = ctx.message.text.trim();
+    if (!title) {
+      await ctx.reply("Title cannot be empty. Please send a title:");
+      return;
+    }
+    const newTitle = title === "." ? undefined : title;
+    session.editingNote = {
+      noteId: session.editingNote.noteId,
+      step: "awaiting_body",
+      newTitle,
+    };
+    const store = getStore();
+    const note = await store.getNote(session.editingNote.noteId);
+    if (!note) {
+      session.editingNote = undefined;
+      await ctx.reply("Note no longer exists.");
+      return;
+    }
+    await ctx.reply(
+      `Current body:\n${note.body}\n\nSend the new body:`,
+      { reply_markup: { force_reply: true } },
+    );
+    return;
+  }
+
+  if (session.editingNote?.step === "awaiting_body") {
     const body = ctx.message.text.trim();
     const noteId = session.editingNote.noteId;
+    const newTitle = session.editingNote.newTitle;
     session.editingNote = undefined;
     const store = getStore();
     const userId = await getUserId(ctx);
@@ -129,7 +158,8 @@ composer.on("message:text", async (ctx, next) => {
       await ctx.reply("Note no longer exists.");
       return;
     }
-    const updated = await store.updateNote(noteId, note.title, body, userId);
+    const title = newTitle ?? note.title;
+    const updated = await store.updateNote(noteId, title, body, userId);
     if (!updated) {
       await ctx.reply("Note no longer exists.");
       return;
@@ -205,9 +235,9 @@ composer.callbackQuery(/^note:edit:(.+)$/, async (ctx) => {
     await ctx.answerCallbackQuery({ text: "You don't have access to this note.", show_alert: true });
     return;
   }
-  ctx.session.editingNote = { noteId };
+  ctx.session.editingNote = { noteId, step: "awaiting_title" };
   await ctx.editMessageText(
-    `Editing "${note.title}"\n\nCurrent body:\n${note.body}\n\nSend the new body:`,
+    `Editing "${note.title}"\n\nCurrent title: ${note.title}\n\nSend new title (or send "." to keep):`,
   );
 });
 
@@ -229,8 +259,21 @@ composer.callbackQuery(/^note:delete:confirm:(.+)$/, async (ctx) => {
     });
     return;
   }
+  const allMembers = await store.getNoteMembers(noteId);
   await store.deleteEdits(noteId);
   await store.deleteNote(noteId);
+  for (const member of allMembers) {
+    if (member.user_id !== userId) {
+      try {
+        await ctx.api.sendMessage(
+          member.user_id,
+          `Note "${note.title}" has been deleted by its owner.`,
+        );
+      } catch {
+        // Non-fatal
+      }
+    }
+  }
   await ctx.editMessageText(`"${note.title}" deleted.`, {
     reply_markup: backToNotesButton(),
   });

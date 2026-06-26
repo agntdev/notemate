@@ -15,6 +15,8 @@ export interface Session {
   };
   editingNote?: {
     noteId: string;
+    step: "awaiting_title" | "awaiting_body";
+    newTitle?: string;
   };
 }
 

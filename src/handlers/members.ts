@@ -13,7 +13,9 @@ function backToNoteButton(noteId: string): InlineKeyboardMarkup {
 }
 
 async function getUserId(ctx: Ctx): Promise<number> {
-  return ctx.from?.id ?? ctx.callbackQuery?.from.id ?? 0;
+  const id = ctx.from?.id ?? ctx.callbackQuery?.from.id;
+  if (!id) throw new Error("Cannot determine user ID");
+  return id;
 }
 
 async function notifyUser(ctx: Ctx, userId: number, text: string): Promise<void> {

@@ -12,7 +12,9 @@ function backToNoteButton(noteId: string): InlineKeyboardMarkup {
 }
 
 async function getUserId(ctx: Ctx): Promise<number> {
-  return ctx.from?.id ?? ctx.callbackQuery?.from.id ?? 0;
+  const id = ctx.from?.id ?? ctx.callbackQuery?.from.id;
+  if (!id) throw new Error("Cannot determine user ID");
+  return id;
 }
 
 async function notifyOwner(ctx: Ctx, ownerId: number, text: string, noteId?: string): Promise<void> {
@@ -23,39 +25,6 @@ async function notifyOwner(ctx: Ctx, ownerId: number, text: string, noteId?: str
     await ctx.api.sendMessage(ownerId, text, { reply_markup: markup });
   } catch {
     // Non-fatal: user may not have started the bot
-  }
-}
-
-async function tryDeliverInvitation(
-  ctx: Ctx,
-  inviteeUserId: number,
-  invitationId: string,
-  noteTitle: string,
-  inviteOwnerId: number,
-): Promise<boolean> {
-  if (!inviteeUserId || inviteeUserId === 0) return false;
-  try {
-    await ctx.api.sendMessage(
-      inviteeUserId,
-      `You've been invited to collaborate on "${noteTitle}".`,
-      {
-        reply_markup: inlineKeyboard([
-          [
-            inlineButton("✅ Accept", `invite:accept:${invitationId}`),
-            inlineButton("❌ Decline", `invite:decline:${invitationId}`),
-          ],
-        ]),
-      },
-    );
-    return true;
-  } catch (err: unknown) {
-    // If the user hasn't started the bot, Telegram returns 403.
-    // The invitee will see the pending invitation when they /start.
-    const code = (err as { error_code?: number }).error_code;
-    if (code === 403) {
-      return false;
-    }
-    return false;
   }
 }
 
@@ -113,10 +82,8 @@ composer.on("message:text", async (ctx, next) => {
     note_title: note.title,
   });
 
-  await tryDeliverInvitation(ctx, 0, invitation.id, note.title, userId);
-
   await ctx.reply(
-    `Invitation sent to @${username} for note "${note.title}".`,
+    `Invitation created for @${username} on note "${note.title}". They'll see it when they /start the bot.`,
     {
       reply_markup: backToNoteButton(noteId),
     },
