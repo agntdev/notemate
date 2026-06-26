@@ -263,5 +263,50 @@
         "expect": [{ "method": "sendMessage" }]
       }
     ]
+  },
+  {
+    "name": "revert note to previous version",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+      },
+      {
+        "send": { "text": "Revert Test" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "Version A" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:edit:7" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "Version B" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:edit:7" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "Version C" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:history:7" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "callback": "note:revert:7:3" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "callback": "note:revert:confirm:7:3" },
+        "expect": [{ "method": "editMessageText" }]
+      }
+    ]
   }
 ]

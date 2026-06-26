@@ -141,6 +141,11 @@ composer.on("message:text", async (ctx, next) => {
           await ctx.api.sendMessage(
             member.user_id,
             `Note "${updated.title}" was edited.`,
+            {
+              reply_markup: inlineKeyboard([
+                [inlineButton("📄 Open note", `note:view:${noteId}`)],
+              ]),
+            },
           );
         } catch {
           // Non-fatal
@@ -271,12 +276,96 @@ composer.callbackQuery(/^note:history:(.+)$/, async (ctx) => {
     return;
   }
   const lines = edits.map(
-    (e, i) => `${i + 1}. ${new Date(e.timestamp).toLocaleString()} — "${e.title}"`,
+    (e, i) => `${i + 1}. ${new Date(e.timestamp).toLocaleString()} — ${e.diff_summary}`,
   );
   const text = `Edit history for "${note.title}":\n\n${lines.join("\n")}`;
+  const rows = edits.map((e, i) => [
+    inlineButton(`↩ Revert #${i + 1}`, `note:revert:${noteId}:${e.id}`),
+  ]);
+  rows.push([inlineButton("⬅️ Back to note", `note:view:${noteId}`)]);
   await ctx.editMessageText(text, {
-    reply_markup: backToNoteButton(noteId),
+    reply_markup: inlineKeyboard(rows),
   });
+});
+
+composer.callbackQuery(/^note:revert:([^:]+):(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const editId = ctx.match[2]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const edits = await store.getEdits(noteId);
+  const targetEdit = edits.find((e) => e.id === editId);
+  if (!targetEdit) {
+    await ctx.editMessageText("Edit revision not found.", {
+      reply_markup: backToNoteButton(noteId),
+    });
+    return;
+  }
+  await ctx.editMessageText(
+    `Revert "${note.title}" to version from ${new Date(targetEdit.timestamp).toLocaleString()}?`,
+    {
+      reply_markup: inlineKeyboard([
+        [
+          inlineButton("✅ Yes, revert", `note:revert:confirm:${noteId}:${editId}`),
+          inlineButton("❌ Cancel", `note:history:${noteId}`),
+        ],
+      ]),
+    },
+  );
+});
+
+composer.callbackQuery(/^note:revert:confirm:([^:]+):(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const noteId = ctx.match[1]!;
+  const editId = ctx.match[2]!;
+  const store = getStore();
+  const note = await store.getNote(noteId);
+  if (!note) {
+    await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const userId = await getUserId(ctx);
+  const reverted = await store.revertToEdit(noteId, editId);
+  if (!reverted) {
+    await ctx.editMessageText("Could not revert — revision not found.", {
+      reply_markup: backToNoteButton(noteId),
+    });
+    return;
+  }
+  const allMembers = await store.getNoteMembers(noteId);
+  for (const member of allMembers) {
+    if (member.user_id !== userId) {
+      try {
+        await ctx.api.sendMessage(
+          member.user_id,
+          `Note "${reverted.title}" was reverted to an earlier version.`,
+          {
+            reply_markup: inlineKeyboard([
+              [inlineButton("📄 Open note", `note:view:${noteId}`)],
+            ]),
+          },
+        );
+      } catch {
+        // Non-fatal
+      }
+    }
+  }
+  await store.addEdit(noteId, userId, "Reverted to earlier version", reverted.title, reverted.body);
+  await ctx.editMessageText(
+    `Reverted "${reverted.title}" to an earlier version.`,
+    {
+      reply_markup: noteViewKeyboard(noteId),
+    },
+  );
 });
 
 export default composer;
