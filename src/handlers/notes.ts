@@ -44,7 +44,7 @@ const composer = new Composer<Ctx>();
 
 composer.command("new", async (ctx) => {
   ctx.session.creatingNote = { step: "awaiting_title" };
-  await ctx.reply("Send the title for your new note:");
+  await ctx.reply("Send the title for your new note:", { reply_markup: { force_reply: true } });
 });
 
 composer.command("list", async (ctx) => {
@@ -88,7 +88,7 @@ composer.callbackQuery("note:list", async (ctx) => {
 composer.callbackQuery("note:create:start", async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.creatingNote = { step: "awaiting_title" };
-  await ctx.editMessageText("Send the title for your new note:");
+  await ctx.editMessageText("Send the title for your new note:", { reply_markup: { force_reply: true } as any });
 });
 
 composer.on("message:text", async (ctx, next) => {
@@ -101,7 +101,7 @@ composer.on("message:text", async (ctx, next) => {
       return;
     }
     session.creatingNote = { step: "awaiting_body", title };
-    await ctx.reply("Now send the body of the note:");
+    await ctx.reply("Now send the body of the note:", { reply_markup: { force_reply: true } });
     return;
   }
 
@@ -171,6 +171,14 @@ composer.callbackQuery(/^note:view:(.+)$/, async (ctx) => {
   const note = await store.getNote(noteId);
   if (!note) {
     await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const userId = await getUserId(ctx);
+  const membership = await store.getMembership(userId, noteId);
+  if (!membership) {
+    await ctx.editMessageText("You don't have access to this note.", {
       reply_markup: backToNotesButton(),
     });
     return;
@@ -268,6 +276,12 @@ composer.callbackQuery(/^note:history:(.+)$/, async (ctx) => {
     });
     return;
   }
+  const userId = await getUserId(ctx);
+  const membership = await store.getMembership(userId, noteId);
+  if (!membership) {
+    await ctx.answerCallbackQuery({ text: "You don't have access to this note.", show_alert: true });
+    return;
+  }
   const edits = await store.getEdits(noteId);
   if (edits.length === 0) {
     await ctx.editMessageText("No edit history for this note.", {
@@ -296,6 +310,14 @@ composer.callbackQuery(/^note:revert:([^:]+):(.+)$/, async (ctx) => {
   const note = await store.getNote(noteId);
   if (!note) {
     await ctx.editMessageText("Note not found.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
+  const userId = await getUserId(ctx);
+  const membership = await store.getMembership(userId, noteId);
+  if (!membership) {
+    await ctx.editMessageText("You don't have access to this note.", {
       reply_markup: backToNotesButton(),
     });
     return;
@@ -334,6 +356,13 @@ composer.callbackQuery(/^note:revert:confirm:([^:]+):(.+)$/, async (ctx) => {
     return;
   }
   const userId = await getUserId(ctx);
+  const membership = await store.getMembership(userId, noteId);
+  if (!membership) {
+    await ctx.editMessageText("You don't have access to this note.", {
+      reply_markup: backToNotesButton(),
+    });
+    return;
+  }
   const reverted = await store.revertToEdit(noteId, editId);
   if (!reverted) {
     await ctx.editMessageText("Could not revert — revision not found.", {

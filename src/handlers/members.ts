@@ -26,6 +26,10 @@ async function notifyUser(ctx: Ctx, userId: number, text: string): Promise<void>
 
 const composer = new Composer<Ctx>();
 
+composer.callbackQuery("noop", async (ctx) => {
+  await ctx.answerCallbackQuery();
+});
+
 composer.callbackQuery(/^note:members:(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   const noteId = ctx.match[1]!;
