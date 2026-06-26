@@ -1,0 +1,75 @@
+[
+  {
+    "name": "view members of a note",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+      },
+      {
+        "send": { "text": "Team Note" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "Team content" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:members:1" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "Members of \"Team Note\":" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "revoke access removes collaborator",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+      },
+      {
+        "send": { "text": "Revoke Test" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "Content" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:invite:2" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "@toremove" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "invite:accept:1", "userId": 2, "chatId": 2 },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "callback": "note:revoke:2:2", "userId": 1, "chatId": 1 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "Remove user 2 from \"Revoke Test\"?" }
+          }
+        ]
+      },
+      {
+        "send": { "callback": "note:revoke:confirm:2:2", "userId": 1, "chatId": 1 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "User 2 removed from \"Revoke Test\"." }
+          }
+        ]
+      }
+    ]
+  }
+]

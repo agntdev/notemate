@@ -1,0 +1,109 @@
+[
+  {
+    "name": "invite collaborator sends invitation",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+      },
+      {
+        "send": { "text": "Invite Test" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "For inviting" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:invite:1" },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": {
+              "text": "Inviting to \"Invite Test\"\n\nSend the @username of the person you want to invite:"
+            }
+          }
+        ]
+      },
+      {
+        "send": { "text": "@johndoe" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Invitation sent to @johndoe for note \"Invite Test\"."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "accept invitation grants access",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+      },
+      {
+        "send": { "text": "Shared Note" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "Collaboration body" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:invite:2" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "@collaborator" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "invite:accept:2", "userId": 2, "chatId": 2 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "You now have access to \"Shared Note\"." }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "decline invitation removes it",
+    "steps": [
+      {
+        "send": { "callback": "note:create:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Send the title for your new note:" } }]
+      },
+      {
+        "send": { "text": "Decline Note" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Now send the body of the note:" } }]
+      },
+      {
+        "send": { "text": "Body" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "note:invite:3" },
+        "expect": [{ "method": "editMessageText" }]
+      },
+      {
+        "send": { "text": "@someone" },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "invite:decline:3", "userId": 2, "chatId": 2 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "You declined the invitation to \"Decline Note\"." }
+          }
+        ]
+      }
+    ]
+  }
+]
