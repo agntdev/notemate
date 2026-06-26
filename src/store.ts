@@ -137,6 +137,14 @@ export class PersistentStore {
     return `invite:${id}`;
   }
 
+  private inviteByNoteKey(noteId: string): string {
+    return `invite:bynote:${noteId}`;
+  }
+
+  private userByUsernameKey(username: string): string {
+    return `user:by:username:${username.toLowerCase()}`;
+  }
+
   private async getJsonArray(key: string): Promise<string[]> {
     const raw = await this.backend.get(key);
     if (!raw) return [];
@@ -163,6 +171,16 @@ export class PersistentStore {
     const arr = await this.getJsonArray(key);
     const filtered = arr.filter((v) => v !== value);
     await this.setJsonArray(key, filtered);
+  }
+
+  async setUserByUsername(username: string, userId: number): Promise<void> {
+    await this.backend.set(this.userByUsernameKey(username), String(userId));
+  }
+
+  async getUserByUsername(username: string): Promise<number | null> {
+    const raw = await this.backend.get(this.userByUsernameKey(username));
+    if (!raw) return null;
+    return parseInt(raw, 10);
   }
 
   async createNote(
@@ -220,6 +238,11 @@ export class PersistentStore {
     for (const userId of members) {
       await this.removeMembership(parseInt(userId, 10), id);
     }
+    const inviteIds = await this.getJsonArray(this.inviteByNoteKey(id));
+    for (const inviteId of inviteIds) {
+      await this.deleteInvitation(inviteId);
+    }
+    await this.backend.del(this.inviteByNoteKey(id));
     await this.backend.del(this.noteKey(id));
     await this.backend.del(this.noteMembersKey(id));
   }
@@ -362,6 +385,7 @@ export class PersistentStore {
       const idsKey = "invite:by:username:" + inv.invited_username.toLowerCase();
       await this.addToJsonSet(idsKey, id);
     }
+    await this.addToJsonSet(this.inviteByNoteKey(inv.note_id), id);
     return invitation;
   }
 
@@ -376,6 +400,9 @@ export class PersistentStore {
     if (inv && inv.invited_username) {
       const idsKey = "invite:by:username:" + inv.invited_username.toLowerCase();
       await this.removeFromJsonSet(idsKey, id);
+    }
+    if (inv) {
+      await this.removeFromJsonSet(this.inviteByNoteKey(inv.note_id), id);
     }
     await this.backend.del(this.inviteKey(id));
   }
