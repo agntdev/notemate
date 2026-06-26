@@ -83,6 +83,7 @@ composer.callbackQuery(/^note:invite:(.+)$/, async (ctx) => {
   ctx.session.invitingToNote = { noteId };
   await ctx.editMessageText(
     `Inviting to "${note.title}"\n\nSend the @username of the person you want to invite:`,
+    { reply_markup: { force_reply: true } as any },
   );
 });
 
@@ -111,6 +112,8 @@ composer.on("message:text", async (ctx, next) => {
     invited_username: username,
     note_title: note.title,
   });
+
+  await tryDeliverInvitation(ctx, 0, invitation.id, note.title, userId);
 
   await ctx.reply(
     `Invitation sent to @${username} for note "${note.title}".`,

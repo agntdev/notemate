@@ -300,11 +300,11 @@
         "expect": [{ "method": "editMessageText" }]
       },
       {
-        "send": { "callback": "note:revert:7:3" },
+        "send": { "callback": "note:revert:7:4" },
         "expect": [{ "method": "editMessageText" }]
       },
       {
-        "send": { "callback": "note:revert:confirm:7:3" },
+        "send": { "callback": "note:revert:confirm:7:4" },
         "expect": [{ "method": "editMessageText" }]
       }
     ]
